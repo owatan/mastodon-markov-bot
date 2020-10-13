@@ -34,7 +34,7 @@ def worker():
         sentence = textModel.make_sentence(tries=100)
         sentence = "".join(sentence.split()) + ' #bot'
 
-    mastodonTool.post_toot(domain, write_access_token, {"status": sentence})
+    mastodonTool.post_toot(domain, write_access_token, {"status": sentence, "visibility": "unlisted"})
 
 
 def schedule(interval, f, wait=True):
