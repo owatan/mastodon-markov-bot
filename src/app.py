@@ -7,6 +7,7 @@ import os
 import datetime
 import markovify
 import exportModel
+import re
 
 # 環境変数の読み込み
 config_ini = configparser.ConfigParser()
@@ -24,20 +25,23 @@ def worker():
     filename = "{}@{}".format(account_info["username"], domain)
     filepath = os.path.join("./chainfiles", os.path.basename(filename.lower()) + ".json")
     if (os.path.isfile(filepath) and datetime.datetime.now().timestamp() - os.path.getmtime(filepath) < 60 * 60 * 24):
-        Msg = "モデルは24時間に1回生成が可能です。"
+        print("モデルは再生成されません")
     else:
         exportModel.generateAndExport(mastodonTool.loadMastodonAPI(domain, read_access_token, account_info['id'], params), filepath)
         print("LOG,GENMODEL," + str(datetime.datetime.now()) + "," + account_info["username"].lower())   # Log
     # 生成
-    with open("./chainfiles/{}@{}.json".format(account_info["username"], domain)) as f:
+    with open("./chainfiles/{}@{}.json".format(account_info["username"].lower(), domain)) as f:
         textModel = markovify.Text.from_json(f.read())
-        sentence = textModel.make_sentence(tries=100)
+        sentence = textModel.make_sentence(tries=300)
         sentence = "".join(sentence.split()) + ' #bot'
+        sentence = re.sub(r'(:.*?:)', r' \1 ', sentence)
+        print(sentence)
+    try:
+        mastodonTool.post_toot(domain, write_access_token, {"status": sentence, "visibility": "unlisted"})
+    except Exception as e:
+        print("投稿エラー: {}".format(e))
 
-    mastodonTool.post_toot(domain, write_access_token, {"status": sentence, "visibility": "unlisted"})
-
-
-def schedule(interval, f, wait=True):
+def schedule(f, interval=1200, wait=True):
     base_time = time.time()
     next_time = 0
     while True:
@@ -51,5 +55,5 @@ def schedule(interval, f, wait=True):
 
 if __name__ == "__main__":
     # 定期実行部分
-    schedule(1800, worker)
+    schedule(worker)
     # worker()
